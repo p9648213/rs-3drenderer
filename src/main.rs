@@ -1,5 +1,8 @@
 use std::sync::OnceLock;
 
+mod display;
+
+use display::{clear_color_buffer, draw_grid, draw_rect};
 use sdl2::{
     EventPump,
     event::Event,
@@ -41,6 +44,9 @@ fn render(color_buffer: &mut [u32], app: &mut AppState) {
     app.canvas.set_draw_color(Color::RGB(255, 0, 0));
     app.canvas.clear();
 
+    draw_grid(color_buffer, app);
+    draw_rect(color_buffer, app, 300, 200, 300, 150, 0xFFFF00FF);
+
     app.color_buffer_texture
         .update(
             None,
@@ -53,17 +59,9 @@ fn render(color_buffer: &mut [u32], app: &mut AppState) {
         .copy(&app.color_buffer_texture, None, None)
         .expect("Filed to copy color buffer texture");
 
-    clear_color_buffer(color_buffer, 0xFFFFFF00, app);
+    clear_color_buffer(color_buffer, 0xFF000000, app);
 
     app.canvas.present();
-}
-
-fn clear_color_buffer(color_buffer: &mut [u32], color: u32, app: &mut AppState) {
-    for y in 0..app.window_height {
-        for x in 0..app.window_width {
-            color_buffer[app.window_width * y + x] = color;
-        }
-    }
 }
 
 fn main() -> Result<(), String> {
