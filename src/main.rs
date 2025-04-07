@@ -20,11 +20,13 @@ struct AppState<'a> {
     window_width: usize,
     window_height: usize,
     event_pump: EventPump,
+    camera_position: Vec3,
+    cube_rotation: Vec3,
 }
 
 static COLOR_BUFFER_SIZE: OnceLock<usize> = OnceLock::new();
 const N_POINTS: usize = 9 * 9 * 9;
-const FOV_FACTOR: f64 = 128.0;
+const FOV_FACTOR: f64 = 640.0;
 
 fn process_input(app: &mut AppState) {
     for event in app.event_pump.poll_iter() {
@@ -43,14 +45,28 @@ fn process_input(app: &mut AppState) {
 
 fn project(point: Vec3) -> Vec2 {
     Vec2 {
-        x: FOV_FACTOR * point.x,
-        y: FOV_FACTOR * point.y,
+        x: FOV_FACTOR * point.x / point.z,
+        y: FOV_FACTOR * point.y / point.z,
     }
 }
 
-fn update(cube_points: &mut [Vec3; N_POINTS], projected_points: &mut [Vec2; N_POINTS]) {
+fn update(
+    cube_points: &mut [Vec3; N_POINTS],
+    projected_points: &mut [Vec2; N_POINTS],
+    app: &mut AppState,
+) {
+    app.cube_rotation.x += 0.01;
+    app.cube_rotation.y += 0.01;
+    app.cube_rotation.z += 0.01;
+
     for i in 0..N_POINTS {
-        projected_points[i] = project(cube_points[i]);
+        let mut transformed_point = Vec3::rotate_x(cube_points[i], app.cube_rotation.x);
+        transformed_point = Vec3::rotate_y(transformed_point, app.cube_rotation.y);
+        transformed_point = Vec3::rotate_z(transformed_point, app.cube_rotation.z);
+
+        transformed_point.z -= app.camera_position.z;
+
+        projected_points[i] = project(transformed_point);
     }
 }
 
@@ -131,6 +147,16 @@ fn main() -> Result<(), String> {
         color_buffer_texture,
         window_height,
         window_width,
+        camera_position: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: -5.0,
+        },
+        cube_rotation: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
     };
 
     let max_size = *COLOR_BUFFER_SIZE.get_or_init(|| window_height * window_width);
@@ -139,7 +165,7 @@ fn main() -> Result<(), String> {
 
     while app.is_running {
         process_input(&mut app);
-        update(&mut cube_points, &mut projected_points);
+        update(&mut cube_points, &mut projected_points, &mut app);
         render(&mut color_buffer, &mut app, &projected_points);
     }
 
