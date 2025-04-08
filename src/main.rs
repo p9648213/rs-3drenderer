@@ -3,7 +3,7 @@ mod vector;
 
 use display::{clear_color_buffer, draw_grid, draw_rect, render_color_buffer};
 use sdl2::{
-    EventPump,
+    EventPump, Sdl,
     event::Event,
     keyboard::Keycode,
     pixels::PixelFormatEnum,
@@ -14,6 +14,7 @@ use std::sync::OnceLock;
 use vector::{Vec2, Vec3};
 
 struct AppState<'a> {
+    context: Sdl,
     canvas: Canvas<Window>,
     is_running: bool,
     color_buffer_texture: Texture<'a>,
@@ -22,11 +23,14 @@ struct AppState<'a> {
     event_pump: EventPump,
     camera_position: Vec3,
     cube_rotation: Vec3,
+    previous_frame_time: i32,
 }
 
 static COLOR_BUFFER_SIZE: OnceLock<usize> = OnceLock::new();
 const N_POINTS: usize = 9 * 9 * 9;
 const FOV_FACTOR: f64 = 640.0;
+const FPS: i32 = 30;
+const FRAME_TARGET_TIME: i32 = 1000 / FPS;
 
 fn process_input(app: &mut AppState) {
     for event in app.event_pump.poll_iter() {
@@ -55,6 +59,13 @@ fn update(
     projected_points: &mut [Vec2; N_POINTS],
     app: &mut AppState,
 ) {
+    let time_to_wait =
+        FRAME_TARGET_TIME - (app.context.timer().unwrap().ticks() as i32 - app.previous_frame_time);
+
+    if time_to_wait > 0 && time_to_wait <= FRAME_TARGET_TIME {
+        app.context.timer().unwrap().delay(time_to_wait as u32);
+    }
+
     app.cube_rotation.x += 0.01;
     app.cube_rotation.y += 0.01;
     app.cube_rotation.z += 0.01;
@@ -141,6 +152,7 @@ fn main() -> Result<(), String> {
     }
 
     let mut app = AppState {
+        context: sdl_context,
         canvas,
         event_pump,
         is_running,
@@ -157,11 +169,12 @@ fn main() -> Result<(), String> {
             y: 0.0,
             z: 0.0,
         },
+        previous_frame_time: 0,
     };
 
     let max_size = *COLOR_BUFFER_SIZE.get_or_init(|| window_height * window_width);
 
-    let mut color_buffer = vec![0xFFFFFF00; max_size].into_boxed_slice();
+    let mut color_buffer = vec![0x00000000; max_size].into_boxed_slice();
 
     while app.is_running {
         process_input(&mut app);
